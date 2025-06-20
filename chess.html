@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background */
+            color: #e2e8f0; /* Light text */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #2d3748; /* Slightly lighter dark background for container */
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .chess-board {
+            display: grid;
+            grid-template-columns: repeat(8, minmax(3rem, 4rem)); /* Responsive square size */
+            grid-template-rows: repeat(8, minmax(3rem, 4rem));
+            border: 2px solid #4a5568;
+            border-radius: 0.5rem;
+            overflow: hidden; /* Ensures rounded corners apply to squares */
+            width: fit-content;
+            height: fit-content;
+            max-width: 90vw; /* Ensure board fits on smaller screens */
+            max-height: 90vw;
+        }
+
+        .square {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem; /* Size of chess piece icon */
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .square.light {
+            background-color: #cbd5e0; /* Light square */
+        }
+
+        .square.dark {
+            background-color: #64748b; /* Dark square */
+        }
+
+        .square.selected {
+            background-color: #f6ad55; /* Orange for selected square */
+            box-shadow: inset 0 0 0 3px #d69e2e;
+        }
+
+        .square.highlighted {
+            background-color: #48bb78; /* Green for valid moves */
+            box-shadow: inset 0 0 0 3px #38a169;
+        }
+
+        .piece {
+            font-size: 2.2rem;
+        }
+
+        .piece.white-piece {
+            color: #f7fafc; /* White color for pieces */
+        }
+
+        .piece.black-piece {
+            color: #2d3748; /* Dark color for pieces */
+        }
+
+        .message-box {
+            background-color: #4a5568;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            min-width: 250px;
+            width: 100%; /* Ensure it spans width of container */
+        }
+
+        .reset-button {
+            background-color: #3182ce; /* Blue */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .reset-button:hover {
+            background-color: #2c5282; /* Darker blue on hover */
+            transform: translateY(-1px);
+        }
+
+        .reset-button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 640px) {
+            .chess-board {
+                grid-template-columns: repeat(8, minmax(2.5rem, 1fr));
+                grid-template-rows: repeat(8, minmax(2.5rem, 1fr));
+            }
+            .square {
+                font-size: 1.8rem;
+            }
+            .piece {
+                font-size: 1.8rem;
+            }
+            .message-box {
+                font-size: 1rem;
+            }
+            .container {
+                padding: 1rem;
+                border-radius: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold mb-4 text-white">Simple Chess</h1>
+        <div class="flex flex-col sm:flex-row items-center gap-4 mb-4">
+            <label for="ai-level-select" class="text-lg font-semibold">AI Level:</label>
+            <select id="ai-level-select" class="p-2 rounded-md bg-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="easy">Easy (Random)</option>
+                <option value="medium">Medium (Capturing)</option>
+            </select>
+        </div>
+        <div id="chess-board" class="chess-board"></div>
+        <div id="message-box" class="message-box">White's Turn</div>
+        <button id="reset-button" class="reset-button">Reset Game</button>
+    </div>
+
+    <script>
+        // Define pieces and their symbols using Font Awesome classes
+        const PIECES = {
+            'P': { white: 'fas fa-chess-pawn white-piece', black: 'fas fa-chess-pawn black-piece' },
+            'R': { white: 'fas fa-chess-rook white-piece', black: 'fas fa-chess-rook black-piece' },
+            'N': { white: 'fas fa-chess-knight white-piece', black: 'fas fa-chess-knight black-piece' },
+            'B': { white: 'fas fa-chess-bishop white-piece', black: 'fas fa-chess-bishop black-piece' },
+            'Q': { white: 'fas fa-chess-queen white-piece', black: 'fas fa-chess-queen black-piece' },
+            'K': { white: 'fas fa-chess-king white-piece', black: 'fas fa-chess-king black-piece' }
+        };
+
+        // Game state variables
+        let board = [];
+        let currentTurn = 'white';
+        let selectedSquare = null; // { row, col }
+        let highlightedMoves = []; // Array of { row, col }
+        let kingInCheck = { white: false, black: false }; // Track if king is in check
+        let lastPawnDoubleMove = null; // For en passant (not fully implemented)
+        let hasKingMoved = { white: false, black: false }; // For castling (not fully implemented)
+        let hasRookMoved = {
+            white: { 0: false, 7: false }, // White rooks at c=0 and c=7
+            black: { 0: false, 7: false }  // Black rooks at c=0 and c=7
+        }; // For castling (not fully implemented)
+        let isAIPlayer = { white: false, black: true }; // Black is AI by default
+        let aiLevel = 'easy'; // New: Default AI level
+
+        const chessBoardElement = document.getElementById('chess-board');
+        const messageBox = document.getElementById('message-box');
+        const resetButton = document.getElementById('reset-button');
+        const aiLevelSelect = document.getElementById('ai-level-select'); // New: Get AI level select element
+
+        // Helper function to create a deep copy of the board
+        function cloneBoard(currentBoard) {
+            return currentBoard.map(row => row.map(cell => cell ? { ...cell } : null));
+        }
+
+        // --- Core Chess Logic Functions ---
+
+        /**
+         * Checks if a given position (row, col) is within the bounds of the board.
+         * @param {number} r - Row index.
+         * @param {number} c - Column index.
+         * @returns {boolean} - True if within bounds, false otherwise.
+         */
+        function isValidPosition(r, c) {
+            return r >= 0 && r < 8 && c >= 0 && c < 8;
+        }
+
+        /**
+         * Finds the king's position for a given color on the board.
+         * @param {Array<Array<object|null>>} currentBoard - The current state of the board.
+         * @param {'white'|'black'} color - The color of the king to find.
+         * @returns {{row: number, col: number}|null} - The king's position, or null if not found.
+         */
+        function findKingPosition(currentBoard, color) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = currentBoard[r][c];
+                    if (piece && piece.type === 'K' && piece.color === color) {
+                        return { row: r, col: c };
+                    }
+                }
+            }
+            return null; // Should not happen in a valid game
+        }
+
+        /**
+         * Checks if the king of a given color is currently in check on the provided board.
+         * @param {Array<Array<object|null>>} currentBoard - The board state to check.
+         * @param {'white'|'black'} kingColor - The color of the king to check for.
+         * @returns {boolean} - True if the king is in check, false otherwise.
+         */
+        function isKingInCheck(currentBoard, kingColor) {
+            const kingPos = findKingPosition(currentBoard, kingColor);
+            if (!kingPos) return false; // King not found, theoretically not in check
+
+            const opponentColor = kingColor === 'white' ? 'black' : 'white';
+
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = currentBoard[r][c];
+                    if (piece && piece.color === opponentColor) {
+                        // Get "raw" attack moves for the opponent's piece.
+                        // These moves represent where the piece *can* attack,
+                        // potentially ignoring that it might be pinned itself.
+                        // For pawns, getPawnsRawMoves considers diagonal attacks.
+                        const attacks = getRawMoves(currentBoard, r, c, piece.type, opponentColor, true); // true for isAttackCheck
+
+                        // Check if any of these attacks target the king's position
+                        for (const attack of attacks) {
+                            if (attack.row === kingPos.row && attack.col === kingPos.col) {
+                                return true; // King is in check
+                            }
+                        }
+                    }
+                }
+            }
+            return false; // King is not in check
+        }
+
+        /**
+         * Gets all "raw" (pseudo-legal) moves for a piece at (r, c) without
+         * considering if the king would be left in check.
+         * It does consider board boundaries, blocking friendly pieces, and capturing enemy pieces.
+         * @param {Array<Array<object|null>>} currentBoard - The current board state.
+         * @param {number} r - Row of the piece.
+         * @param {number} c - Column of the piece.
+         * @param {string} type - Type of the piece (e.g., 'P', 'R').
+         * @param {'white'|'black'} color - Color of the piece.
+         * @param {boolean} [isAttackCheck=false] - Special flag for pawn attacks when checking for king in check.
+         * @returns {Array<{row: number, col: number}>} - Array of possible move coordinates.
+         */
+        function getRawMoves(currentBoard, r, c, type, color, isAttackCheck = false) {
+            const moves = [];
+            const opponentColor = color === 'white' ? 'black' : 'white';
+
+            // Helper for sliding pieces (Rook, Bishop, Queen)
+            const addSlidingMoves = (dr, dc) => {
+                let currR = r + dr;
+                let currC = c + dc;
+                while (isValidPosition(currR, currC)) {
+                    const targetPiece = currentBoard[currR][currC];
+                    if (!targetPiece) {
+                        moves.push({ row: currR, col: currC });
+                    } else {
+                        if (targetPiece.color === opponentColor) {
+                            moves.push({ row: currR, col: currC }); // Can capture opponent
+                        }
+                        break; // Blocked by own or opponent piece
+                    }
+                    currR += dr;
+                    currC += dc;
+                }
+            };
+
+            switch (type) {
+                case 'P':
+                    const direction = color === 'white' ? -1 : 1;
+                    const startRow = color === 'white' ? 6 : 1;
+
+                    // Forward 1 square
+                    if (isValidPosition(r + direction, c) && !currentBoard[r + direction][c]) {
+                        moves.push({ row: r + direction, col: c });
+                    }
+                    // Forward 2 squares (initial move)
+                    if (r === startRow && !currentBoard[r + direction][c] && !currentBoard[r + 2 * direction][c]) {
+                        moves.push({ row: r + 2 * direction, col: c });
+                    }
+                    // Diagonal captures
+                    const captureOffsets = [-1, 1];
+                    for (const offset of captureOffsets) {
+                        const targetR = r + direction;
+                        const targetC = c + offset;
+                        if (isValidPosition(targetR, targetC)) {
+                            const targetPiece = currentBoard[targetR][targetC];
+                            if (targetPiece && targetPiece.color === opponentColor) {
+                                moves.push({ row: targetR, col: targetC });
+                            } else if (isAttackCheck && !targetPiece) {
+                                // For king in check calculation, pawns 'attack' empty diagonal squares as well
+                                // so we know where a pawn *could* move if there was a piece there.
+                                // This is crucial for detecting king checks.
+                                moves.push({ row: targetR, col: targetC });
+                            }
+                            // En Passant check (simplified/placeholder)
+                            if (lastPawnDoubleMove && targetR === lastPawnDoubleMove.row + direction && targetC === lastPawnDoubleMove.col) {
+                                // This would be the en passant capture logic
+                                // moves.push({ row: targetR, col: targetC });
+                            }
+                        }
+                    }
+                    break;
+                case 'R':
+                    addSlidingMoves(1, 0);  // Down
+                    addSlidingMoves(-1, 0); // Up
+                    addSlidingMoves(0, 1);  // Right
+                    addSlidingMoves(0, -1); // Left
+                    break;
+                case 'N':
+                    const knightMoves = [
+                        { dr: 2, dc: 1 }, { dr: 2, dc: -1 }, { dr: -2, dc: 1 }, { dr: -2, dc: -1 },
+                        { dr: 1, dc: 2 }, { dr: 1, dc: -2 }, { dr: -1, dc: 2 }, { dr: -1, dc: -2 }
+                    ];
+                    for (const move of knightMoves) {
+                        const newR = r + move.dr;
+                        const newC = c + move.dc;
+                        if (isValidPosition(newR, newC)) {
+                            const targetPiece = currentBoard[newR][newC];
+                            if (!targetPiece || targetPiece.color === opponentColor) {
+                                moves.push({ row: newR, col: newC });
+                            }
+                        }
+                    }
+                    break;
+                case 'B':
+                    addSlidingMoves(1, 1);   // Down-Right
+                    addSlidingMoves(1, -1);  // Down-Left
+                    addSlidingMoves(-1, 1);  // Up-Right
+                    addSlidingMoves(-1, -1); // Up-Left
+                    break;
+                case 'Q':
+                    // Rook moves
+                    addSlidingMoves(1, 0);  addSlidingMoves(-1, 0);
+                    addSlidingMoves(0, 1);  addSlidingMoves(0, -1);
+                    // Bishop moves
+                    addSlidingMoves(1, 1);  addSlidingMoves(1, -1);
+                    addSlidingMoves(-1, 1); addSlidingMoves(-1, -1);
+                    break;
+                case 'K':
+                    const kingMoves = [
+                        { dr: 1, dc: 0 }, { dr: -1, dc: 0 }, { dr: 0, dc: 1 }, { dr: 0, dc: -1 },
+                        { dr: 1, dc: 1 }, { dr: 1, dc: -1 }, { dr: -1, dc: 1 }, { dr: -1, dc: -1 }
+                    ];
+                    for (const move of kingMoves) {
+                        const newR = r + move.dr;
+                        const newC = c + move.dc;
+                        if (isValidPosition(newR, newC)) {
+                            const targetPiece = currentBoard[newR][newC];
+                            if (!targetPiece || targetPiece.color === opponentColor) {
+                                moves.push({ row: newR, col: newC });
+                            }
+                        }
+                    }
+                    // Castling logic (simplified, not fully implemented for full validity check)
+                    // if (!hasKingMoved[color] && !isKingInCheck(currentBoard, color)) {
+                    //     const kingRow = color === 'white' ? 7 : 0;
+                    //     // Kingside Castling
+                    //     if (!hasRookMoved[color][7] && !currentBoard[kingRow][5] && !currentBoard[kingRow][6]) {
+                    //         // Check if squares between king and rook are attacked (complex for simple version)
+                    //         // For simplicity, just add the move if clear path.
+                    //         moves.push({ row: kingRow, col: 6, isCastling: 'kingside' });
+                    //     }
+                    //     // Queenside Castling
+                    //     if (!hasRookMoved[color][0] && !currentBoard[kingRow][1] && !currentBoard[kingRow][2] && !currentBoard[kingRow][3]) {
+                    //         // Check if squares between king and rook are attacked (complex for simple version)
+                    //         // For simplicity, just add the move if clear path.
+                    //         moves.push({ row: kingRow, col: 2, isCastling: 'queenside' });
+                    //     }
+                    // }
+                    break;
+            }
+            return moves;
+        }
+
+        /**
+         * Gets all legal moves for a piece at (r, c), considering if the move would
+         * leave the king in check.
+         * @param {Array<Array<object|null>>} currentBoard - The current board state.
+         * @param {number} r - Row of the piece.
+         * @param {number} c - Column of the piece.
+         * @returns {Array<{row: number, col: number}>} - Array of legal move coordinates.
+         */
+        function getLegalMoves(currentBoard, r, c) {
+            const piece = currentBoard[r][c];
+            if (!piece) return [];
+
+            const pseudoLegalMoves = getRawMoves(currentBoard, r, c, piece.type, piece.color);
+            const legalMoves = [];
+
+            for (const move of pseudoLegalMoves) {
+                const tempBoard = cloneBoard(currentBoard);
+                // Simulate the move on the temporary board
+                tempBoard[move.row][move.col] = tempBoard[r][c];
+                tempBoard[r][c] = null;
+
+                // Check if the king is in check after this simulated move
+                if (!isKingInCheck(tempBoard, piece.color)) {
+                    legalMoves.push(move);
+                }
+            }
+            return legalMoves;
+        }
+
+        /**
+         * Initializes the chess board with pieces in their starting positions.
+         */
+        function initializeBoard() {
+            board = Array(8).fill(null).map(() => Array(8).fill(null));
+
+            // Pawns
+            for (let i = 0; i < 8; i++) {
+                board[1][i] = { type: 'P', color: 'black' };
+                board[6][i] = { type: 'P', color: 'white' };
+            }
+
+            // Rooks
+            board[0][0] = { type: 'R', color: 'black' };
+            board[0][7] = { type: 'R', color: 'black' };
+            board[7][0] = { type: 'R', color: 'white' };
+            board[7][7] = { type: 'R', color: 'white' };
+
+            // Knights
+            board[0][1] = { type: 'N', color: 'black' };
+            board[0][6] = { type: 'N', color: 'black' };
+            board[7][1] = { type: 'N', color: 'white' };
+            board[7][6] = { type: 'N', color: 'white' };
+
+            // Bishops
+            board[0][2] = { type: 'B', color: 'black' };
+            board[0][5] = { type: 'B', color: 'black' };
+            board[7][2] = { type: 'B', color: 'white' };
+            board[7][5] = { type: 'B', color: 'white' };
+
+            // Queens
+            board[0][3] = { type: 'Q', color: 'black' };
+            board[7][3] = { type: 'Q', color: 'white' };
+
+            // Kings
+            board[0][4] = { type: 'K', color: 'black' };
+            board[7][4] = { type: 'K', color: 'white' };
+
+            currentTurn = 'white';
+            selectedSquare = null;
+            highlightedMoves = [];
+            kingInCheck = { white: false, black: false };
+            lastPawnDoubleMove = null;
+            hasKingMoved = { white: false, black: false };
+            hasRookMoved = {
+                white: { 0: false, 7: false },
+                black: { 0: false, 7: false }
+            };
+            aiLevel = 'easy'; // Reset AI level on new game
+            aiLevelSelect.value = 'easy'; // Update dropdown
+            updateMessage(`${currentTurn.charAt(0).toUpperCase() + currentTurn.slice(1)}'s Turn`);
+        }
+
+        /**
+         * Renders the chess board onto the HTML element.
+         * Clears existing board and redraws all squares and pieces.
+         */
+        function renderBoard() {
+            chessBoardElement.innerHTML = ''; // Clear existing board
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const square = document.createElement('div');
+                    square.dataset.row = r;
+                    square.dataset.col = c;
+                    square.classList.add('square');
+                    square.classList.add((r + c) % 2 === 0 ? 'light' : 'dark');
+
+                    // Add piece if exists
+                    const piece = board[r][c];
+                    if (piece) {
+                        const pieceElement = document.createElement('i');
+                        pieceElement.className = PIECES[piece.type][piece.color];
+                        square.appendChild(pieceElement);
+                    }
+
+                    // Highlight selected square
+                    if (selectedSquare && selectedSquare.row === r && selectedSquare.col === c) {
+                        square.classList.add('selected');
+                    }
+
+                    // Highlight valid moves
+                    if (highlightedMoves.some(move => move.row === r && move.col === c)) {
+                        square.classList.add('highlighted');
+                    }
+
+                    square.addEventListener('click', () => handleSquareClick(r, c));
+                    chessBoardElement.appendChild(square);
+                }
+            }
+        }
+
+        /**
+         * Updates the game message displayed to the user.
+         * @param {string} msg - The message to display.
+         */
+        function updateMessage(msg) {
+            messageBox.textContent = msg;
+        }
+
+        /**
+         * Performs a move on the board, updating game state and checking for end conditions.
+         * @param {number} fromR - Starting row of the piece.
+         * @param {number} fromC - Starting column of the piece.
+         * @param {number} toR - Destination row of the piece.
+         * @param {number} toC - Destination column of the piece.
+         */
+        function performMove(fromR, fromC, toR, toC) {
+            const movingPiece = board[fromR][fromC];
+            if (!movingPiece) return; // Should not happen if called correctly
+
+            board[toR][toC] = movingPiece; // Move the piece
+            board[fromR][fromC] = null; // Clear the original square
+
+            // Update King/Rook moved status for castling (simplified/not fully functional)
+            if (movingPiece.type === 'K') {
+                hasKingMoved[movingPiece.color] = true;
+            } else if (movingPiece.type === 'R') {
+                hasRookMoved[movingPiece.color][fromC] = true;
+            }
+
+            // Handle pawn double move for en passant tracking (simplified/not fully functional)
+            if (movingPiece.type === 'P' && Math.abs(toR - fromR) === 2) {
+                lastPawnDoubleMove = { row: toR, col: toC };
+            } else {
+                lastPawnDoubleMove = null;
+            }
+
+            // Handle pawn promotion (simplified to always queen for now if it reaches last rank)
+            if (movingPiece.type === 'P' && ((movingPiece.color === 'white' && toR === 0) || (movingPiece.color === 'black' && toR === 7))) {
+                board[toR][toC].type = 'Q'; // Promote to Queen
+            }
+
+            // Clear selection and switch turn
+            selectedSquare = null;
+            highlightedMoves = [];
+            currentTurn = currentTurn === 'white' ? 'black' : 'white';
+
+            // Check for King in check after the move
+            kingInCheck.white = isKingInCheck(board, 'white');
+            kingInCheck.black = isKingInCheck(board, 'black');
+
+            // Basic win/draw condition (Checkmate/Stalemate - simplified)
+            const opponentHasLegalMoves = hasAnyLegalMoves(board, currentTurn);
+
+            if (!opponentHasLegalMoves) {
+                if (isKingInCheck(board, currentTurn)) {
+                    updateMessage(`${currentTurn.charAt(0).toUpperCase() + currentTurn.slice(1)} is Checkmated! ${currentTurn === 'white' ? 'Black' : 'White'} Wins!`);
+                } else {
+                    updateMessage(`Stalemate! It's a Draw.`);
+                }
+                // Stop the game, no more moves allowed
+                selectedSquare = null;
+                highlightedMoves = [];
+            } else {
+                updateMessage(`${currentTurn.charAt(0).toUpperCase() + currentTurn.slice(1)}'s Turn`);
+                if (kingInCheck[currentTurn]) {
+                    messageBox.textContent += ' (Check!)';
+                }
+            }
+
+            renderBoard(); // Re-render the board to reflect changes
+
+            // If it's the AI's turn, trigger the AI move
+            if (isAIPlayer[currentTurn] && opponentHasLegalMoves) {
+                setTimeout(makeAIMove, 700); // Give a small delay for visual feedback
+            }
+        }
+
+
+        /**
+         * Handles a click event on a chess square.
+         * Manages piece selection, move validation, and board updates.
+         * @param {number} r - Row of the clicked square.
+         * @param {number} c - Column of the clicked square.
+         */
+        function handleSquareClick(r, c) {
+            // Prevent human interaction if it's the AI's turn
+            if (isAIPlayer[currentTurn]) {
+                return;
+            }
+
+            const clickedPiece = board[r][c];
+
+            if (selectedSquare) {
+                // A piece is already selected
+                const fromR = selectedSquare.row;
+                const fromC = selectedSquare.col;
+                const movingPiece = board[fromR][fromC];
+
+                // Check if the clicked square is one of the highlighted valid moves
+                const isValidHighlightedMove = highlightedMoves.some(move => move.row === r && move.col === c);
+
+                if (isValidHighlightedMove) {
+                    performMove(fromR, fromC, r, c);
+                } else if (clickedPiece && clickedPiece.color === currentTurn) {
+                    // Clicked on another piece of the current player's color, so select new piece
+                    selectedSquare = { row: r, col: c };
+                    highlightedMoves = getLegalMoves(board, r, c);
+                    renderBoard(); // Re-render to show new selection
+                } else {
+                    // Invalid move or clicked on an empty square/opponent's piece: deselect
+                    selectedSquare = null;
+                    highlightedMoves = [];
+                    renderBoard(); // Re-render to clear selection
+                }
+            } else {
+                // No piece is selected yet
+                if (clickedPiece && clickedPiece.color === currentTurn) {
+                    // Select the clicked piece
+                    selectedSquare = { row: r, col: c };
+                    highlightedMoves = getLegalMoves(board, r, c);
+                    renderBoard(); // Re-render to show selection and highlights
+                }
+            }
+        }
+
+        /**
+         * Checks if the current player has any legal moves left.
+         * This is a simplified check for stalemate/checkmate.
+         * @param {Array<Array<object|null>>} currentBoard - The board state.
+         * @param {'white'|'black'} playerColor - The color of the player to check.
+         * @returns {boolean} - True if the player has at least one legal move, false otherwise.
+         */
+        function hasAnyLegalMoves(currentBoard, playerColor) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = currentBoard[r][c];
+                    if (piece && piece.color === playerColor) {
+                        const moves = getLegalMoves(currentBoard, r, c);
+                        if (moves.length > 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Implements the AI's move logic based on selected level.
+         */
+        function makeAIMove() {
+            const aiColor = currentTurn;
+            let possibleAIMoves = [];
+
+            // Gather all legal moves for all AI's pieces
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = board[r][c];
+                    if (piece && piece.color === aiColor) {
+                        const legalMovesForPiece = getLegalMoves(board, r, c);
+                        legalMovesForPiece.forEach(move => {
+                            possibleAIMoves.push({ from: { row: r, col: c }, to: move });
+                        });
+                    }
+                }
+            }
+
+            if (possibleAIMoves.length > 0) {
+                let chosenMove = null;
+
+                if (aiLevel === 'easy') {
+                    // Easy: Choose a random legal move
+                    chosenMove = possibleAIMoves[Math.floor(Math.random() * possibleAIMoves.length)];
+                } else if (aiLevel === 'medium') {
+                    // Medium: Prioritize capturing moves
+                    const captureMoves = possibleAIMoves.filter(move => board[move.to.row][move.to.col] !== null);
+
+                    if (captureMoves.length > 0) {
+                        // If there are capturing moves, pick one randomly from them
+                        chosenMove = captureMoves[Math.floor(Math.random() * captureMoves.length)];
+                    } else {
+                        // If no capturing moves, pick any random legal move
+                        chosenMove = possibleAIMoves[Math.floor(Math.random() * possibleAIMoves.length)];
+                    }
+                }
+
+                if (chosenMove) {
+                    performMove(chosenMove.from.row, chosenMove.from.col, chosenMove.to.row, chosenMove.to.col);
+                }
+            } else {
+                // No legal moves for AI (Stalemate or Checkmate scenario)
+                if (isKingInCheck(board, aiColor)) {
+                     updateMessage(`${aiColor.charAt(0).toUpperCase() + aiColor.slice(1)} is Checkmated! ${aiColor === 'white' ? 'Black' : 'White'} Wins!`);
+                } else {
+                    updateMessage(`Stalemate! It's a Draw.`);
+                }
+            }
+        }
+
+        // --- Event Listeners ---
+        resetButton.addEventListener('click', () => {
+            initializeBoard();
+            renderBoard();
+        });
+
+        // New: Event listener for AI level change
+        aiLevelSelect.addEventListener('change', (event) => {
+            aiLevel = event.target.value;
+            // Inform user of level change, but the game needs a reset to truly apply
+            updateMessage(`AI level set to ${aiLevel.charAt(0).toUpperCase() + aiLevel.slice(1)}. Reset game to apply.`);
+        });
+
+        // Initial setup
+        window.onload = function() {
+            initializeBoard();
+            renderBoard();
+        };
+
+    </script>
+</body>
+</html>
